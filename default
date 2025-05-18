@@ -1,0 +1,56 @@
+#!/bin/bash
+# Get the directory where the script resides
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+
+# Source the model definitions
+source "$DIR/models.conf"
+
+# --- Determine Default Hostname and Models ---
+
+# Check the YO_HOSTNAME environment variable first
+# If it's not set, default to 'openrouter'
+if [[ -z "$YO_HOSTNAME" ]]; then
+    YO_HOSTNAME="openrouter"
+fi
+
+# Set default models based on the chosen hostname
+case "$YO_HOSTNAME" in
+    groq)
+        # Set Groq defaults if not already defined by environment variables
+        [[ -z "$YO_MODEL" ]] && YO_MODEL="$GROQ_MODEL"
+        [[ -z "$YO_MODEL_SOTA" ]] && YO_MODEL_SOTA="$GROQ_MODEL_SOTA"
+        [[ -z "$YO_MODEL_SEARCH" ]] && YO_MODEL_SEARCH="$GROQ_MODEL_SEARCH"
+        [[ -z "$YO_MODEL_RP" ]] && YO_MODEL_RP="$GROQ_MODEL_RP"
+        [[ -z "$YO_MODEL_LIQUID" ]] && YO_MODEL_LIQUID="$GROQ_MODEL_LIQUID"
+        [[ -z "$YO_MODEL_CODE" ]] && YO_MODEL_CODE="$GROQ_MODEL_CODE"
+        [[ -z "$YO_MODEL_FLASH" ]] && YO_MODEL_FLASH="$GROQ_MODEL_FLASH"
+        ;;
+    ollama)
+        # Set Ollama defaults if not already defined
+        # Ensure API_OLLAMA_HOST is set (checked in chat.sh)
+        [[ -z "$YO_MODEL" ]] && YO_MODEL="$OLLAMA_MODEL"
+        [[ -z "$YO_MODEL_SOTA" ]] && YO_MODEL_SOTA="$OLLAMA_MODEL_SOTA"
+        [[ -z "$YO_MODEL_SEARCH" ]] && YO_MODEL_SEARCH="$OLLAMA_MODEL_SEARCH"
+        [[ -z "$YO_MODEL_RP" ]] && YO_MODEL_RP="$OLLAMA_MODEL_RP"
+        [[ -z "$YO_MODEL_LIQUID" ]] && YO_MODEL_LIQUID="$OLLAMA_MODEL_LIQUID"
+        [[ -z "$YO_MODEL_CODE" ]] && YO_MODEL_CODE="$OLLAMA_MODEL_CODE"
+        [[ -z "$YO_MODEL_FLASH" ]] && YO_MODEL_FLASH="$OLLAMA_MODEL_FLASH"
+        ;;
+    openrouter|*) # Default to openrouter if YO_HOSTNAME is 'openrouter' or unrecognized
+        # Set OpenRouter defaults if not already defined
+        [[ "$YO_HOSTNAME" != "openrouter" ]] && YO_HOSTNAME="openrouter" # Force to openrouter if invalid value was set
+        [[ -z "$YO_MODEL" ]] && YO_MODEL="$OPENROUTER_MODEL"
+        [[ -z "$YO_MODEL_SOTA" ]] && YO_MODEL_SOTA="$OPENROUTER_MODEL_SOTA"
+        [[ -z "$YO_MODEL_SEARCH" ]] && YO_MODEL_SEARCH="$OPENROUTER_MODEL_SEARCH"
+        [[ -z "$YO_MODEL_RP" ]] && YO_MODEL_RP="$OPENROUTER_MODEL_ROLEPLAY"
+        [[ -z "$YO_MODEL_LIQUID" ]] && YO_MODEL_LIQUID="$OPENROUTER_MODEL_LIQUID"
+        [[ -z "$YO_MODEL_CODE" ]] && YO_MODEL_CODE="$OPENROUTER_MODEL_CODE"
+        [[ -z "$YO_MODEL_FLASH" ]] && YO_MODEL_FLASH="$OPENROUTER_MODEL_FLASH"
+        ;;
+esac
+
+# Export the potentially modified YO_HOSTNAME and model variables so chat.sh can use them
+export YO_HOSTNAME
+export YO_MODEL YO_MODEL_SOTA YO_MODEL_SEARCH YO_MODEL_RP YO_MODEL_LIQUID YO_MODEL_CODE YO_MODEL_FLASH
+
+
