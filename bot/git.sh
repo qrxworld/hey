@@ -44,7 +44,10 @@ if [ -z "$should_commit" ] || [[ "$should_commit" =~ ^[Yy] ]]; then
     # Now do the commit
     git add .
     git commit -m "$message"
-    git push
+    git push origin
+    git push pixel
+    git push local
+
     echo -e "$GREEN Commit successful! $RESET"
 elif [[ "$should_commit" =~ ^[Rr] ]]; then
     echo -e "$YELLOW Please enter a new commit message: $RESET"
