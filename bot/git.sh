@@ -23,7 +23,7 @@ if [ -z "$message" ]; then
         model_flag="--model $model"
     fi
 
-    message=$(echo "$message" | bash "$HEY/hey.sh" $model_flag --prompt "Briefly summarize this git commit change. Output the message directly with no fluff, your response is echoed directly to the terminal so be brief. Multiple sentences ok and preferred, but do not use newlines (its a commit message). Do not add > or numbers or any comments like great job etc to user, just the raw commit message with no formatting" | tr -d '\n')
+    message=$(echo "$message" | bash "$HEY/hey.sh" $model_flag --prompt "Briefly summarize this git commit change. Output the message directly with no fluff, your response is echoed directly to the terminal so be brief. Multiple sentences ok and preferred, but do not use newlines (its a commit message). Do not add > or numbers or any comments like great job etc to user, just the raw commit message with NO FORMATTING OR ESCAPING. DO not be hyper descriptive, just summarize the major changes" | tr -d '\n')
     echo -e $BGBLUE"$message"$CLEAR
 fi
 
