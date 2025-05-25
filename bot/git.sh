@@ -68,9 +68,16 @@ if [ -z "$should_commit" ] || [[ "$should_commit" =~ ^[Yy] ]]; then
     # Now do the commit
     git add .
     git commit -m "$message"
-    git push origin
-    git push pixel
-    git push local
+
+    # Push to all remotes with error handling
+    for remote in $(git remote); do
+      echo -e "$BLUE Pushing to $remote...$CLEAR"
+      if git push "$remote"; then
+          echo -e "$GREEN Successfully pushed to $remote$CLEAR"
+      else
+          echo -e "$RED Failed to push to $remote$CLEAR"
+      fi
+    done
 
     echo -e "$GREEN Commit successful! $RESET"
 elif [[ "$should_commit" =~ ^[Rr] ]]; then
