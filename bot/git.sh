@@ -41,7 +41,7 @@ Context: You're looking at git diff output that may include:
 - HHMM timestamps = time-based notes
 - <repo> = git commit references
 
-Ignore routine personal tracking, focus on meaningful code/content changes.
+Ignore routine personal tracking, focus on meaningful code/content changes. Focus on changes (eg lines begining with + or -)
 
 Example: "Add user authentication middleware and update login flow"
 EOF
