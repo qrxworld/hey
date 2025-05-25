@@ -23,6 +23,30 @@ if [ -z "$message" ]; then
         model_flag="--model $model"
     fi
 
+    prompt=$(cat << 'EOF'
+Write a concise git commit message summarizing the changes shown.
+
+Rules:
+- One line only, no newlines
+- Start with action verb (Add, Fix, Update, Remove, etc.)
+- Be specific but brief
+- Skip daily routine items like food/exercise checkboxes
+- No formatting, quotes, or extra commentary
+- Focus on code/content changes that matter
+
+Context: You're looking at git diff output that may include:
+- [ ] = tasks/todos
+- [-] = paused tasks  
+- [c] = current tasks
+- HHMM timestamps = time-based notes
+- <repo> = git commit references
+
+Ignore routine personal tracking, focus on meaningful code/content changes.
+
+Example: "Add user authentication middleware and update login flow"
+EOF
+)
+
     message=$(echo "$message" | bash "$HEY/hey.sh" $model_flag --prompt "Briefly summarize this git commit change. Output the message directly with no fluff, your response is echoed directly to the terminal so be brief. Multiple sentences ok and preferred, but do not use newlines (its a commit message). Do not add > or numbers or any comments like great job etc to user, just the raw commit message with NO FORMATTING OR ESCAPING. DO not be hyper descriptive, just summarize the major changes. It's not necessary to note every checkbox change if it's just casual things like food and exercise, which is done daily" | tr -d '\n')
     echo -e $BGBLUE"$message"$CLEAR
 fi
