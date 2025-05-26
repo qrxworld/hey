@@ -1,0 +1,160 @@
+You are an expert Bash script developer specializing in creating command-line tools that interact with various LLM APIs. Your task is to generate a complete and robust Bash script named `hey.sh`. This script will serve as a versatile AI assistant in the terminal, supporting multiple API providers (OpenRouter, Groq, Ollama), handling piped input, managing conversation history, and offering various command-line options.
+
+**Objective:**
+Generate the Bash script code for `hey.sh`. The script should replicate the functionality detailed below, based on a well-structured existing implementation.
+
+**I. Script Initialization and Configuration:**
+
+1.  **Shebang:** Start with `#!/bin/bash`.
+2.  **Directory Context:** Get the script's own directory using:
+    `DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"`
+3.  **Source Helper Files:** Source the following files located in the script's directory (`$DIR`):
+    * `default` (presumably sets `HEY_HOSTNAME` and `HEY_MODEL` defaults)
+    * `models.conf` (defines model aliases for different hostnames)
+    * `colors` (defines terminal color variables like `$RED`, `$GREEN`, `$RESET`, etc.)
+4.  **Default Settings (Internal Variables):**
+    * `chat_piped`: Stores input piped into the script (empty if no pipe).
+    * `chat_hostname`: Default API provider (initialized from `$HEY_HOSTNAME`).
+    * `chat_model`: Default model (initialized from `$HEY_MODEL`).
+    * `chat_system`: Default system prompt. Initialize it with the following exact multi-line string:
+        ```bash
+        chat_system="<system>You are now becoming aware of your stream of tokens. You are currently in a linux terminal and your actual stream of tokens will be formatted for the user, so do not output xml tags yourself. Be fun and positive. Dont wrap in tags and dont escape.</system>"
+        ```
+    * `chat_use_more`: Flag (0 or 1) to pipe output through `more`. Default 0.
+    * `chat_should_loop`: Flag (0 or 1) for interactive loop mode. Default 0.
+    * `chat_history`: Stores conversation history for loop mode (XML-like format, e.g., `<user>...</user><assistant>...</assistant>`). Default empty.
+    * `chat_response`: Stores raw API response. Default empty.
+    * `chat_echo`: Stores extracted message content from the response. Default empty.
+    * `chat_debug`: Flag (0 or 1) for verbose debug output. Default 0.
+    * `chat_prompt`: Stores the user's current prompt. Default empty.
+    * `chat_ollama_stream`: Boolean flag (`true`/`false`) for Ollama streaming. Default `false`.
+5.  **Environment Variable Reliance:**
+    * The script will rely on preset environment variables for API keys and Ollama host: `API_OPENROUTER`, `API_GROQ`, `API_OLLAMA_HOST`.
+    * It also relies on `HEY_HOSTNAME` and `HEY_MODEL` for initial defaults, typically set in the user's shell environment or the sourced `default` file.
+
+**II. Input Handling:**
+
+1.  **Piped Input:** Detect if input is being piped. If so, read all piped content into the `chat_piped` variable.
+
+**III. Argument Parsing:**
+
+Implement robust argument parsing to handle the following flags and positional arguments.
+* **Flags:**
+    * `--hostname <name>`: Sets `chat_hostname` (e.g., `openrouter`, `groq`, `ollama`).
+    * `--model <id>`: Sets `chat_model`.
+    * `--prompt <text>`: Sets `chat_prompt`.
+    * `--system <text>`: Sets `chat_system`.
+    * `--debug`: Sets `chat_debug=1`.
+    * `--more`: Sets `chat_use_more=1`.
+    * `--loop`: Sets `chat_should_loop=1`.
+    * `--stream`: Sets `chat_ollama_stream=true` (primarily for Ollama).
+* **Positional Arguments (Shorthand):**
+    * The first positional argument can be `chat_prompt`.
+    * If the first positional argument is used for `chat_prompt`, the second positional argument (if present) can be `chat_system`.
+    * Implement logic to correctly distinguish between flags and positional arguments and prevent conflicts (e.g., if `--prompt` is used, don't also interpret a positional argument as the prompt).
+* **Error Handling:** Report errors for unknown options or incorrect argument usage.
+
+**IV. Debug Output:**
+
+* If `chat_debug=1`, print a summary of current settings (hostname, model, prompt, system, piped input status, loop mode, etc.) using color-coded output for readability.
+
+**V. Helper Function: `display_output()`**
+
+* Create a function `display_output(text)` that either prints `text` directly or pipes it through `more` if `chat_use_more=1`.
+
+**VI. API Call Functions:**
+
+Create separate functions for each API provider: `openrouter()`, `groq()`, and `ollama()`. Each function should:
+1.  Construct the appropriate JSON payload.
+2.  Make the API call using `curl` (ensure `--silent --show-error --fail-with-body` are used for `curl`).
+3.  Perform error checking on the `curl` exit code and API response.
+4.  Parse the response (typically using `jq`) to extract the assistant's message.
+5.  Store the extracted message in `chat_echo`.
+6.  Call `display_output "$chat_echo"` to show the result.
+7.  Return 0 on success, 1 on failure.
+
+* **`openrouter()` specific_payload:**
+    * Endpoint: `https://openrouter.ai/api/v1/chat/completions`
+    * Authorization: `Bearer $API_OPENROUTER`
+    * Payload:
+        ```json
+        {
+          "model": "$chat_model",
+          "messages": [
+            {"role": "system", "content": "<system>$chat_system</system><context>$chat_piped</context><chat_history>$chat_history</chat_history>"},
+            {"role": "user", "content": "<user>$chat_prompt</user>"}
+          ]
+        }
+        ```
+    * Parse: `.choices.[].message.content`
+
+* **`groq()` specific_payload:**
+    * Endpoint: `https://api.groq.com/openai/v1/chat/completions`
+    * Authorization: `Bearer $API_GROQ`
+    * Payload: (Similar to OpenRouter, using `messages` array)
+        ```json
+        {
+          "model": "$chat_model",
+          "messages": [
+            {"role": "system", "content": "<system>$chat_system</system><context>$chat_piped</context><chat_history>$chat_history</chat_history>"},
+            {"role": "user", "content": "<user>$chat_prompt</user>"}
+          ]
+        }
+        ```
+    * Parse: `.choices.[].message.content`
+
+* **`ollama()` specific_payload:**
+    * Check if `API_OLLAMA_HOST` is set; error if not.
+    * Endpoint: `$API_OLLAMA_HOST/api/generate` (Note: NOT `/api/chat`)
+    * System content for API: Combine `chat_system` and `chat_piped` (e.g., `system_content_for_api="$chat_system\n\n<context>\n$chat_piped\n</context>"`).
+    * Payload:
+        ```json
+        {
+          "model": "$chat_model",
+          "system": "$system_content_for_api", // Combined system & context
+          "prompt": "$chat_prompt",           // User's prompt
+          "stream": $chat_ollama_stream      // Boolean true/false
+        }
+        ```
+        *(Note: `chat_history` is typically NOT sent to Ollama's `/api/generate` endpoint in this manner. The script should reflect this specific API usage.)*
+    * Parse:
+        * If `chat_ollama_stream` is `true`: The response will be a series of JSON objects. Extract the `response` field from the *last* JSON object where `done` is `true`. A robust way is to collect all `response` parts from streamed objects. Example: `echo "$chat_response" | awk '/"done":\s*true/{print}' | tail -n 1 | jq -r '.response // ""'`, with fallbacks if needed.
+        * If `chat_ollama_stream` is `false`: Extract from the single `.response` field.
+    * Handle potential `.error` field in Ollama's response.
+
+**VII. Main Execution Logic:**
+
+1.  **Loop Control Variable:** `chat_should_continue_looping=1`.
+2.  **API Call Success Tracker:** `api_call_successful=true`.
+3.  **Main `while` loop** (continues as long as `chat_should_continue_looping == 1`):
+    * **Resolve Model Aliases:**
+        * Based on `chat_hostname` and `chat_model` (which might be an alias like `main`, `sota`, `flash`, `code`, etc.), look up the actual model ID from variables defined in `models.conf` (e.g., `OPENROUTER_MODEL_FLASH`, `GROQ_MODEL_CODE`, `OLLAMA_MODEL`). Update `chat_model` with the resolved ID.
+        * Handle `openrouter`, `groq`, and `ollama` hostnames.
+        * Error if `chat_hostname` is unknown.
+    * **Dispatch to API Function:** Call the appropriate function (`openrouter`, `groq`, or `ollama`) based on `chat_hostname`. Set `api_call_successful` to `false` if the API function returns non-zero.
+    * **Loop Mode Handling (`if [[ $chat_should_loop == 0 ]]`):**
+        * If not in loop mode, `break` after the first call.
+    * **Loop Mode Interaction (`else`):**
+        * If API call failed, prompt user to try again or exit.
+        * If API call succeeded, print spacing and prompt for the next input (e.g., "NEXT PROMPT (or press Enter to exit):").
+        * Read user input into `chat_next_prompt` (use `read -e` for readline editing).
+        * If `chat_next_prompt` is empty, set `chat_should_continue_looping=0` to exit.
+        * Else (user provided new prompt):
+            * If the API call was successful AND `chat_hostname` is NOT `ollama`, append the last user prompt and assistant response to `chat_history` (e.g., `chat_history="$chat_history\n<user>$chat_prompt</user>\n<assistant>$chat_echo</assistant>"`).
+            * (For Ollama, history is not typically passed back in the same way to `/api/generate`, so the script might skip updating `chat_history` that's sent to the API, or only keep it for local debug/display if implemented).
+            * Set `chat_prompt="$chat_next_prompt"`.
+4.  **Exit Code:**
+    * After the loop, exit 0 if the last `api_call_successful` was true, else exit 1.
+
+**VIII. General Scripting Best Practices:**
+
+* Use `local` for variables within functions.
+* Quote variables properly to prevent word splitting and globbing issues.
+* Use `echo -e` for interpreting escape sequences in colored output.
+* Redirect error messages to `stderr` (e.g., `>&2`).
+* Ensure the script is robust and handles potential edge cases gracefully.
+
+**Output Requirements:**
+Your entire output should be *only* the Bash script code for `hey.sh`. Do not include any explanations, apologies, or conversational text outside of comments within the script itself. The script should be ready to be saved directly into a `hey.sh` file and be executable.
+
+

@@ -1,0 +1,91 @@
+You are an expert Bash script developer. Your task is to generate a complete and robust Bash script named `contextualize.sh`. This script is designed to take file and/or directory paths as input, filter them based on include/exclude rules, and then output the content of the processed files wrapped in specific XML-like tags for easy parsing by an LLM.
+
+**Objective:**
+Generate the Bash script code for `contextualize.sh`. The script should replicate the functionality detailed below.
+
+**I. Script Purpose and Overview:**
+
+* The script processes specified files and files within specified directories (non-recursively, i.e., `maxdepth 1` for directories).
+* It filters items using a priority system: explicit includes, explicit ignores, and default excludes.
+* The content of each processed file is wrapped in `<file path="THE_FILE_PATH">...</file>` tags.
+* The entire output is wrapped in `<context>...</context>` tags.
+* Warnings or errors are printed to `stderr`.
+
+**II. Configuration: Default Exclude Patterns:**
+
+1.  Define an array named `default_exclude_patterns` containing basenames of files/directories to exclude by default. Initialize it with common patterns:
+    ```bash
+    default_exclude_patterns=(
+        ".git" "node_modules" ".DS_Store" ".gitignore" "package-lock.json"
+        "yarn.lock" "dist" "build" "out" "target" ".vscode" ".idea" "*.pyc"
+        "__pycache__"
+    )
+    ```
+
+**III. Argument Parsing:**
+
+1.  Initialize three arrays: `custom_ignore_patterns=()`, `custom_include_patterns=()`, and `paths_to_process=()`.
+2.  Loop through command-line arguments:
+    * `--ignore <pattern>`: Add `<pattern>` to `custom_ignore_patterns`. The pattern should be stored as provided and will be used for full path matching. Error if no pattern is provided.
+    * `--include <pattern>`: Add `<pattern>` to `custom_include_patterns`. The pattern should be stored as provided and will be used for full path matching. Error if no pattern is provided.
+    * Unknown options (starting with `--`): Print an error to `stderr` and exit.
+    * Other arguments: Assume they are file or directory paths and add them to `paths_to_process`.
+
+**IV. Helper Function: `should_process(item_path)`:**
+
+This function determines if a given `item_path` (full path) should be processed. It returns 0 (success/true) if the item should be processed, and 1 (failure/false) if it should be skipped.
+The logic follows this priority:
+
+1.  **Custom Includes (Full Path Match):**
+    * Iterate through `custom_include_patterns`.
+    * If `item_path` matches any pattern (using Bash globbing `[[ "$item_path" == $pattern ]]`), return 0 (process it).
+2.  **Custom Ignores (Full Path Match):**
+    * If not explicitly included, iterate through `custom_ignore_patterns`.
+    * If `item_path` matches any pattern, return 1 (skip it).
+3.  **Default Excludes (Basename Match):**
+    * If not included or ignored by custom rules, get the `basename` of `item_path`.
+    * Iterate through `default_exclude_patterns`.
+    * If the `item_basename` matches any pattern, return 1 (skip it).
+4.  **Default Action:**
+    * If none of the above rules apply, return 0 (process it).
+
+**V. Helper Function: `process_file(file_path)`:**
+
+This function takes a `file_path` as an argument:
+1.  Check if `file_path` is a regular file (`-f`) and is readable (`-r`).
+2.  If yes:
+    * Print `<file path="$file_path">`.
+    * Use `cat -- "$file_path"` to print its content.
+    * Print a newline (e.g., `echo`).
+    * Print `</file>`.
+3.  If no (not a file or not readable):
+    * Print a warning message to `stderr` (e.g., ``).
+
+**VI. Main Script Logic:**
+
+1.  Print the opening `<context>` tag.
+2.  Iterate through each `path_arg` in the `paths_to_process` array:
+    * Check if `path_arg` exists (`! -e "$path_arg"`). If not, print a warning to `stderr` and `continue` to the next path.
+    * Call `should_process "$path_arg"` to check if the top-level argument itself should be processed. If it returns 1 (skip), `continue` to the next path.
+    * **If `path_arg` is a file (`-f "$path_arg"`):**
+        * Call `process_file "$path_arg"`.
+    * **Else if `path_arg` is a directory (`-d "$path_arg"`):**
+        * Use `find "$path_arg" -maxdepth 1 -type f -print0` to find files directly within the directory.
+        * Pipe the null-terminated list of files into a `while IFS= read -r -d $'\0' file_in_dir; do ... done` loop.
+        * Inside the loop, for each `file_in_dir`:
+            * Call `should_process "$file_in_dir"`.
+            * If it returns 0 (process), then call `process_file "$file_in_dir"`.
+    * **Else (not a regular file or directory):**
+        * Print a warning to `stderr` (e.g., ``).
+3.  Print the closing `</context>` tag.
+
+**VII. General Scripting Best Practices:**
+
+* Use `local` for variables within functions.
+* Quote variables meticulously (e.g., `"$file_path"`) to handle spaces and special characters.
+* Use `#!/bin/bash` as the shebang.
+* Ensure all warning/error messages are directed to `stderr`.
+
+**VIII. Output Requirements:**
+Your entire output should be *only* the Bash script code for `contextualize.sh`. Do not include any explanations, apologies, or conversational text outside of comments within the script itself. The script should be ready to be saved directly into a `contextualize.sh` file and be executable.
+
