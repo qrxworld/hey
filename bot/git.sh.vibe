@@ -1,0 +1,95 @@
+You are an expert Bash script developer. Your task is to generate a complete and robust Bash script named `git.sh`. This script will be used to automate common git commit workflows, including automatic commit message generation via an external LLM call.
+
+**Objective:**
+Create a Bash script (`git.sh`) that performs the following actions:
+
+1.  **Environment Variable Assumption:**
+    * The script should assume standard color variables like `$BLUE`, `$GREEN`, `$RED`, `$YELLOW`, `$MAGENTA`, `$BGBLUE`, `$CLEAR`, `$RESET` are available in the execution environment for console output styling.
+    * It should assume a `$HEY` environment variable points to the directory containing `hey.sh`.
+    * It should assume a `$HISTORY` environment variable points to a history file path.
+
+2.  **Argument Handling:**
+    * The script should accept an optional `--model "modelname"` argument to specify an LLM model for `hey.sh`.
+    * Any other arguments passed to `git.sh` should be treated as a pre-defined commit message.
+
+3.  **Automatic Commit Message Generation (if no message is provided):**
+    * If no commit message is passed as an argument:
+        * Run `git add .` to stage all changes.
+        * Capture the output of `git status` and `git diff --staged`.
+        * **Crucially, define an internal multi-line Bash variable (e.g., `COMMIT_MESSAGE_SYSTEM_PROMPT`) that contains the following exact text. This text will be used as the system prompt for `hey.sh`:**
+            ```text
+            You are an expert git commit message writer.
+            Your task is to generate a concise and informative commit message summarizing the provided 'git diff' output.
+
+            **Input Context:**
+            You will receive 'git diff' output. This output may contain:
+            - Lines prefixed with '+' (additions) and '-' (deletions), indicating changes to code or content.
+            - Task tracking markers such as:
+                - `[ ]` (for to-do items)
+                - `[-]` (for paused items)
+                - `[c]` (for items currently in progress)
+            - Timestamps (e.g., HHMM format).
+            - Repository references (e.g., `<repo>`).
+
+            **Commit Message Generation Rules:**
+
+            1.  **Core Task:** Analyze the provided 'git diff' and synthesize a summary of the changes.
+
+            2.  **Output Format - CRITICAL:**
+                * **Direct Output:** Your entire response will be used *directly* as the git commit message.
+                * **NO Newlines:** The commit message must be a single logical line. While multiple sentences are acceptable for clarity, they must not contain literal newline characters (`\n`).
+                * **NO Prefixes/Suffixes:** Do not include any conversational phrases, greetings, or closings (e.g., "Here is the commit message:", "Okay, done!", "Summary of changes:").
+                * **NO Quotation Marks:** Do not wrap the commit message in quotation marks.
+                * **NO Escaping:** Do not escape any characters. Output the raw text.
+
+            3.  **Content Style:**
+                * **Action Verb Start:** Begin the commit message with an imperative action verb (e.g., Add, Fix, Update, Refactor, Remove, Implement, Document, Style, Chore, Test, Revert).
+                * **Conciseness & Specificity:** Be specific about what was changed, but keep it brief. Summarize the *major* and *most meaningful* modifications.
+                * **Focus on Changes:** Prioritize describing the actual code or content modifications.
+                * **Ignore Routine/Personal Items:** Disregard minor, routine personal tracking updates (like food logs, exercise checkboxes, or other non-code related daily notes) unless they represent significant project-related tasks or deliverables.
+                * **Avoid Hyper-Description:** Do not attempt to describe every single minor alteration. Capture the overall essence and impact of the commit.
+
+            **Example of a good commit message:**
+            `Refactor user authentication module and update API endpoints`
+
+            **Primary Objective:**
+            Your sole output should be the generated commit message itself, adhering strictly to all the rules above.
+            ```
+        * Call `hey.sh` to generate the commit message. The command should look like this:
+            `message=$(echo "$git_diff_output" | bash "$HEY/hey.sh" $model_flag --system "$COMMIT_MESSAGE_SYSTEM_PROMPT" | tr -d '\n')`
+            (Ensure `$model_flag` is correctly constructed if `--model` was passed).
+        * Display the generated message to the user (e.g., in `$BGBLUE`).
+
+4.  **User Confirmation:**
+    * Prompt the user: "Should the message be committed ([Y]es / [n]o / [r]egenerate)?" (e.g., in `$MAGENTA`).
+    * Read user input.
+
+5.  **Commit Actions (based on confirmation):**
+    * **Yes (or empty input):**
+        * Log the commit message to the `$HISTORY` file. Format: `timestamp <repo_name> message`. (Extract `repo_name` from `git remote get-url origin`).
+        * Handle the case where `$HISTORY` file might not exist (e.g., by echoing to `xsel -ib` as a fallback and notifying the user).
+        * Run `git add .` (again, for safety).
+        * Run `git commit -m "$message"`.
+        * Iterate through all git remotes (`git remote`) and push to each. Provide feedback on success/failure for each remote.
+        * Indicate successful commit (e.g., in `$GREEN`).
+    * **Regenerate:**
+        * Prompt the user to enter a new commit message (e.g., in `$YELLOW`).
+        * Use this new message.
+        * Log, commit, and push as above.
+        * Indicate success with the new message.
+    * **No:**
+        * Indicate that the commit was cancelled (e.g., in `$YELLOW`).
+
+6.  **Shebang and Permissions:**
+    * The script should start with `#!/bin/bash`.
+    * Ensure the generated script is directly executable.
+
+7.  **Error Handling and Robustness:**
+    * Include basic error checks (e.g., if `hey.sh` is not found, if git commands fail).
+    * Ensure paths and variables are correctly quoted.
+
+**Output Requirements:**
+Your entire output should be *only* the Bash script code for `git.sh`. Do not include any explanations, apologies, or conversational text outside the script's comments. The script should be ready to be saved directly into a `git.sh` file.
+
+
+
